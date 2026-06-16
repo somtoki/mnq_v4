@@ -1,0 +1,7 @@
+research_exit_reason,paper_exit_reason,count
+opposite_10,long_exit_opposite_10,631
+atr_stop,long_atr_stop,616
+atr_stop,short_atr_stop,368
+opposite_10,short_exit_opposite_10,365
+opposite_10,short_atr_stop,8
+opposite_10,long_atr_stop,3

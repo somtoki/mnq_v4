@@ -1,0 +1,2 @@
+closed_trades,total_pnl_usd,total_pnl_points,average_pnl_usd,median_pnl_usd,win_count,loss_count,win_rate,gross_profit,gross_loss,profit_factor,max_drawdown_usd,long_trade_count,short_trade_count,long_pnl_usd,short_pnl_usd
+2047,41389.0,20694.5,20.219345383488033,-45.5,701,1345,0.3424523693209575,177454.0,-136065.0,1.3041854995774078,-2857.5,1263,784,24327.5,17061.5

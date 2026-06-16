@@ -1,0 +1,5 @@
+exit_reason,trade_count,pnl_usd
+long_exit_opposite_10,638,84947.5
+long_atr_stop,625,-60620.0
+short_atr_stop,398,-49944.0
+short_exit_opposite_10,386,67005.5
