@@ -84,9 +84,19 @@ Use the logged JSON field to compare candidate FID values across repeated events
 
 Use `run_kiwoom_fid_discovery.py` when you are ready to log real Kiwoom realtime events during market hours.
 
+For MNQ and similar overseas futures workflows, the default API kind is `overseas_futures`, which selects `KFOPENAPI.KFOpenAPICtrl.1`.
+
+If you need the domestic stock control instead, use the domestic fallback, which selects `KHOPENAPI.KHOpenAPICtrl.1`.
+
+If the installed environment exposes a different COM control, override it directly with `--prog-id`.
+
 Example:
 
 `C:\Users\Cham\AppData\Local\Programs\Python\Python39-32\python.exe .\run_kiwoom_fid_discovery.py --symbol MNQ --log-path data/live/kiwoom_fid_discovery.csv`
+
+You can also override the discovery registration inputs:
+
+`C:\Users\Cham\AppData\Local\Programs\Python\Python39-32\python.exe .\run_kiwoom_fid_discovery.py --symbol MNQ --screen-no 9001 --realtime-fids 20;10;15 --duration-minutes 1`
 
 Expected output file:
 
@@ -103,6 +113,7 @@ Safety reminder:
 - Paper trading only
 - No real orders
 - `send_order()` remains disabled
+- Realtime registration is discovery-only and should only be used to log candidate FIDs
 
 ## Analyzing FID Discovery Logs
 
@@ -120,6 +131,17 @@ Inspect these files first:
 - `summary.md`
 
 Use `fid_summary.csv` when you need the full field-by-field statistics, including sample values, numeric parse rate, changed count, and monotonic-like score.
+
+## HeroMoonG / Overseas Futures API Discovery
+
+Use `app/research/discover_kiwoom_overseas_api.py` to detect which Kiwoom COM ProgIDs are installed on the current PC before assuming the domestic stock API control is the right one.
+
+This matters because domestic stock OpenAPI and overseas futures / HeroMoonG environments may expose different COM controls and different realtime behavior.
+
+The next step should depend on the detected ProgID:
+
+- If an overseas futures-like `KF...` ProgID is detected, prioritize that control for login and realtime discovery work.
+- If only `KH...` ProgIDs are detected, verify whether the installed environment actually supports overseas futures through that control before wiring more logic.
 
 ## Next Steps For Real Kiwoom OpenAPI Connection
 

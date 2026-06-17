@@ -66,11 +66,23 @@ def build_sample_fid_payloads(symbol: str = "MNQ") -> List[Dict[str, object]]:
 class KiwoomOpenApiClient:
     """PyQt/QAxWidget-based Kiwoom client skeleton with paper-only safeguards."""
 
-    def __init__(self, bridge: KiwoomLiveBridge, symbol: str = "MNQ") -> None:
+    def __init__(
+        self,
+        bridge: KiwoomLiveBridge,
+        symbol: str = "MNQ",
+        screen_no: str = "9001",
+        realtime_fids: str = "20;10;15",
+        prog_id: Optional[str] = None,
+        api_kind: str = "overseas_futures",
+    ) -> None:
         """Stores the target bridge and optional Kiwoom runtime handles."""
 
         self._bridge = bridge
         self._symbol = symbol
+        self._screen_no = str(screen_no)
+        self._realtime_fids = str(realtime_fids)
+        self._api_kind = str(api_kind)
+        self._prog_id = self._resolve_prog_id(prog_id=prog_id, api_kind=api_kind)
         self._qt_application = None  # type: Optional[QApplication]
         self._control = None  # type: Optional[QAxWidget]
         self._events_connected = False
@@ -85,7 +97,18 @@ class KiwoomOpenApiClient:
     def is_available(self) -> bool:
         """Returns whether PyQt5 and QAxContainer are available in this environment."""
 
-        return QApplication is not None and QAxWidget is not None
+        if QApplication is None or QAxWidget is None:
+            return False
+        widget = None
+        try:
+            widget = QAxWidget(self._prog_id)
+            return not widget.isNull()
+        except Exception:
+            return False
+        finally:
+            if widget is not None:
+                widget.clear()
+                widget.deleteLater()
 
     def login(self) -> None:
         """Runs CommConnect and waits for the OnEventConnect result."""
@@ -100,13 +123,16 @@ class KiwoomOpenApiClient:
         if self._qt_application is None:
             self._qt_application = QApplication.instance() or QApplication([])
         if self._control is None:
-            self._control = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
+            self._control = QAxWidget(self._prog_id)
         if self._control is None:
             raise RuntimeError("Kiwoom OpenAPI control could not be initialized.")
+        if self._control.isNull():
+            raise RuntimeError("Kiwoom OpenAPI control is unavailable for ProgID: {0}".format(self._prog_id))
         self._bind_login_event()
         self._login_error_code = None
         self._login_completed = False
         self._login_event_loop = QEventLoop()
+        print("KiwoomOpenApiClient selected ProgID: {0}".format(self._prog_id))
         result = self._control.dynamicCall("CommConnect()")
         if result not in (0, None):
             self._login_event_loop = None
@@ -141,15 +167,32 @@ class KiwoomOpenApiClient:
         print("KiwoomOpenApiClient event binding skeleton connected")
 
     def register_realtime(self, symbol: str) -> None:
-        """Prints intended realtime registration without requiring a live login."""
+        """Attempts a safe realtime registration for FID discovery only."""
 
         self._registered_symbols.add(symbol)
-        print(
-            "KiwoomOpenApiClient realtime registration is not finalized for symbol: {0}".format(
-                symbol
+        if self._control is None:
+            print("KiwoomOpenApiClient realtime registration unavailable: QAx widget is not initialized")
+            return
+
+        try:
+            result = self._control.dynamicCall(
+                "SetRealReg(QString, QString, QString, QString)",
+                self._screen_no,
+                symbol,
+                self._realtime_fids,
+                "0",
             )
-        )
-        print("KiwoomOpenApiClient SetRealReg format/FID mapping is still pending discovery")
+            print(
+                "KiwoomOpenApiClient SetRealReg attempted screen={0} symbol={1} fids={2} result={3}".format(
+                    self._screen_no,
+                    symbol,
+                    self._realtime_fids,
+                    result,
+                )
+            )
+        except Exception as error:
+            print("KiwoomOpenApiClient realtime registration failed safely: {0}".format(error))
+            print("KiwoomOpenApiClient SetRealReg format/FID mapping may still need adjustment")
 
     def get_qt_application(self) -> Optional[QApplication]:
         """Returns the cached QApplication instance when available."""
@@ -170,12 +213,28 @@ class KiwoomOpenApiClient:
         QTimer.singleShot(milliseconds, stop_callback)
 
     def unregister_realtime(self, symbol: str) -> None:
-        """Prints intended realtime unregistration."""
+        """Attempts a safe realtime unregistration for the configured screen."""
 
         self._registered_symbols.discard(symbol)
-        print(
-            "KiwoomOpenApiClient skeleton would unregister realtime for symbol: {0}".format(symbol)
-        )
+        if self._control is None:
+            print("KiwoomOpenApiClient realtime unregistration unavailable: QAx widget is not initialized")
+            return
+
+        try:
+            result = self._control.dynamicCall(
+                "SetRealRemove(QString, QString)",
+                self._screen_no,
+                symbol,
+            )
+            print(
+                "KiwoomOpenApiClient SetRealRemove attempted screen={0} symbol={1} result={2}".format(
+                    self._screen_no,
+                    symbol,
+                    result,
+                )
+            )
+        except Exception as error:
+            print("KiwoomOpenApiClient realtime unregistration failed safely: {0}".format(error))
 
     def start(self) -> None:
         """Runs the paper-safe startup skeleton."""
@@ -196,6 +255,13 @@ class KiwoomOpenApiClient:
         fid_values["symbol"] = code or self._symbol
         fid_values["real_type"] = real_type
         fid_values["real_data"] = real_data
+        print(
+            "KiwoomOpenApiClient realtime event code={0} real_type={1} fid_snapshot={2}".format(
+                code or self._symbol,
+                real_type,
+                fid_values,
+            )
+        )
 
         if self.discovery_mode:
             self.log_fid_snapshot(code=code or self._symbol, real_type=real_type, fid_values=fid_values)
@@ -310,6 +376,16 @@ class KiwoomOpenApiClient:
 
         return self._login_completed and self._login_error_code == 0
 
+    def get_prog_id(self) -> str:
+        """Returns the selected Kiwoom COM ProgID."""
+
+        return self._prog_id
+
+    def get_api_kind(self) -> str:
+        """Returns the selected API kind label."""
+
+        return self._api_kind
+
     def _build_default_candidate_fids(self) -> List[str]:
         """Returns placeholder realtime FID candidates for discovery mode."""
 
@@ -356,3 +432,12 @@ class KiwoomOpenApiClient:
         print("KiwoomOpenApiClient OnEventConnect received: {0}".format(self._login_error_code))
         if self._login_event_loop is not None and self._login_event_loop.isRunning():
             self._login_event_loop.quit()
+
+    def _resolve_prog_id(self, prog_id: Optional[str], api_kind: str) -> str:
+        """Resolves the COM ProgID from an override or API kind."""
+
+        if prog_id:
+            return str(prog_id)
+        if str(api_kind) == "domestic":
+            return "KHOPENAPI.KHOpenAPICtrl.1"
+        return "KFOPENAPI.KFOpenAPICtrl.1"

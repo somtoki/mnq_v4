@@ -22,6 +22,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--symbol", type=str, default="MNQ", help="Target symbol for discovery.")
     parser.add_argument("--bar-minutes", type=int, default=15, help="Bridge bar size in minutes.")
     parser.add_argument(
+        "--api-kind",
+        choices=["overseas_futures", "domestic"],
+        default="overseas_futures",
+        help="Kiwoom API environment to target. Overseas futures is the default for MNQ.",
+    )
+    parser.add_argument(
+        "--prog-id",
+        type=str,
+        default=None,
+        help="Optional COM ProgID override for Kiwoom API discovery/login.",
+    )
+    parser.add_argument("--screen-no", type=str, default="9001", help="Kiwoom screen number for realtime registration.")
+    parser.add_argument(
+        "--realtime-fids",
+        type=str,
+        default="20;10;15",
+        help="Semicolon-separated FID list for realtime registration attempts.",
+    )
+    parser.add_argument(
         "--log-path",
         type=str,
         default="data/live/kiwoom_fid_discovery.csv",
@@ -46,11 +65,22 @@ def main() -> int:
 
     args = parse_args()
     bridge = KiwoomLiveBridge(symbol=args.symbol, bar_minutes=args.bar_minutes)
-    client = KiwoomOpenApiClient(bridge=bridge, symbol=args.symbol)
+    client = KiwoomOpenApiClient(
+        bridge=bridge,
+        symbol=args.symbol,
+        screen_no=args.screen_no,
+        realtime_fids=args.realtime_fids,
+        prog_id=args.prog_id,
+        api_kind=args.api_kind,
+    )
     log_path = client.enable_discovery_mode(fid_log_path=args.log_path)
 
     print("Kiwoom FID Discovery Started")
     print("Symbol: {0}".format(args.symbol))
+    print("API kind: {0}".format(client.get_api_kind()))
+    print("ProgID: {0}".format(client.get_prog_id()))
+    print("Screen no: {0}".format(args.screen_no))
+    print("Realtime FIDs: {0}".format(args.realtime_fids))
     print("Log path: {0}".format(log_path))
     print("Paper trading only. Real orders disabled.")
 

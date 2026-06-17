@@ -1,0 +1,6 @@
+prog_id,registry_exists,qax_available,control_created,control_name,commconnect_callable,getconnectstate_callable,setrealreg_callable,setrealremove_callable,documentation_excerpt,qax_error
+KHOPENAPI.KHOpenAPICtrl.1,True,True,True,{a1574a0d-6bfa-4bd7-9020-ded88711818d},yes,yes,yes,yes,<h1 align=center>KHOpenAPI Control Reference</h1> <p>The KHOpenAPI Control COM object is a QAxWidget with the CLSID {a1574a0d-6bfa-4bd7-9020-ded88711818d}.</p> <h3>Interfaces</h3> <ul> <li>_DKHOpenAPI,
+KFOPENAPI.KFOpenAPICtrl.1,True,True,True,{d1acab7d-a3af-49e4-9004-c9e98344e17a},unknown,yes,unknown,unknown,<h1 align=center>KFOpenAPI Control Reference</h1> <p>The KFOpenAPI Control COM object is a QAxWidget with the CLSID {d1acab7d-a3af-49e4-9004-c9e98344e17a}.</p> <h3>Interfaces</h3> <ul> <li>_DKFOpenAPI,
+KFOpenAPI.KFOpenAPICtrl.1,True,True,True,{d1acab7d-a3af-49e4-9004-c9e98344e17a},unknown,yes,unknown,unknown,<h1 align=center>KFOpenAPI Control Reference</h1> <p>The KFOpenAPI Control COM object is a QAxWidget with the CLSID {d1acab7d-a3af-49e4-9004-c9e98344e17a}.</p> <h3>Interfaces</h3> <ul> <li>_DKFOpenAPI,
+KHOPENAPI.KHOpenAPICtrl,False,True,False,,unavailable,unavailable,unavailable,unavailable,,QAxWidget is null after creation
+KFOPENAPI.KFOpenAPICtrl,False,True,False,,unavailable,unavailable,unavailable,unavailable,,QAxWidget is null after creation
