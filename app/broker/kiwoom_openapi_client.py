@@ -10,11 +10,12 @@ from typing import Any, Dict, List, Optional
 
 try:
     from PyQt5.QAxContainer import QAxWidget  # type: ignore
-    from PyQt5.QtCore import QTimer  # type: ignore
+    from PyQt5.QtCore import QEventLoop, QTimer  # type: ignore
     from PyQt5.QtWidgets import QApplication  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency for future integration only.
     QApplication = None
     QAxWidget = None
+    QEventLoop = None
     QTimer = None
 
 from app.broker.kiwoom_live_bridge import KiwoomLiveBridge
@@ -74,6 +75,9 @@ class KiwoomOpenApiClient:
         self._control = None  # type: Optional[QAxWidget]
         self._events_connected = False
         self._registered_symbols = set()  # type: set[str]
+        self._login_event_loop = None  # type: Optional[QEventLoop]
+        self._login_error_code = None  # type: Optional[int]
+        self._login_completed = False
         self.discovery_mode = False
         self.fid_log_path = Path(__file__).resolve().parents[2] / "data" / "live" / "kiwoom_fid_discovery.csv"
         self.candidate_fids = self._build_default_candidate_fids()
@@ -84,12 +88,14 @@ class KiwoomOpenApiClient:
         return QApplication is not None and QAxWidget is not None
 
     def login(self) -> None:
-        """Initializes the optional Kiwoom control without performing real trading."""
+        """Runs CommConnect and waits for the OnEventConnect result."""
 
         if not self.is_available():
             raise RuntimeError(
                 "PyQt5/QAxContainer is not available. Kiwoom OpenAPI login skeleton cannot start."
             )
+        if QEventLoop is None:
+            raise RuntimeError("PyQt5.QtCore.QEventLoop is not available for Kiwoom login.")
 
         if self._qt_application is None:
             self._qt_application = QApplication.instance() or QApplication([])
@@ -97,8 +103,27 @@ class KiwoomOpenApiClient:
             self._control = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
         if self._control is None:
             raise RuntimeError("Kiwoom OpenAPI control could not be initialized.")
+        self._bind_login_event()
+        self._login_error_code = None
+        self._login_completed = False
+        self._login_event_loop = QEventLoop()
+        result = self._control.dynamicCall("CommConnect()")
+        if result not in (0, None):
+            self._login_event_loop = None
+            raise RuntimeError("CommConnect() failed to start. Return value: {0}".format(result))
 
-        print("KiwoomOpenApiClient login skeleton initialized (no actual login performed)")
+        print("KiwoomOpenApiClient CommConnect requested")
+        self._login_event_loop.exec_()
+        self._login_event_loop = None
+
+        if not self._login_completed:
+            raise RuntimeError("Kiwoom login did not complete.")
+        if self._login_error_code != 0:
+            raise RuntimeError(
+                "Kiwoom login failed with error code: {0}".format(self._login_error_code)
+            )
+
+        print("KiwoomOpenApiClient login completed successfully")
 
     def connect_events(self) -> None:
         """Binds optional OpenAPI events when the control is available."""
@@ -109,6 +134,7 @@ class KiwoomOpenApiClient:
         if self._control is None:
             raise RuntimeError("Kiwoom control is not initialized. Call login() first.")
 
+        self._bind_login_event()
         if not self._events_connected and hasattr(self._control, "OnReceiveRealData"):
             self._control.OnReceiveRealData.connect(self.on_receive_real_data)
             self._events_connected = True
@@ -118,7 +144,12 @@ class KiwoomOpenApiClient:
         """Prints intended realtime registration without requiring a live login."""
 
         self._registered_symbols.add(symbol)
-        print("KiwoomOpenApiClient skeleton would register realtime for symbol: {0}".format(symbol))
+        print(
+            "KiwoomOpenApiClient realtime registration is not finalized for symbol: {0}".format(
+                symbol
+            )
+        )
+        print("KiwoomOpenApiClient SetRealReg format/FID mapping is still pending discovery")
 
     def get_qt_application(self) -> Optional[QApplication]:
         """Returns the cached QApplication instance when available."""
@@ -274,6 +305,11 @@ class KiwoomOpenApiClient:
 
         raise RuntimeError("Real orders are disabled in this paper trading client.")
 
+    def is_logged_in(self) -> bool:
+        """Returns whether the last login callback completed successfully."""
+
+        return self._login_completed and self._login_error_code == 0
+
     def _build_default_candidate_fids(self) -> List[str]:
         """Returns placeholder realtime FID candidates for discovery mode."""
 
@@ -301,3 +337,22 @@ class KiwoomOpenApiClient:
             seen.add(normalized_fid)
             normalized.append(normalized_fid)
         return normalized
+
+    def _bind_login_event(self) -> None:
+        """Binds the Kiwoom login callback once when available."""
+
+        if self._control is None or not hasattr(self._control, "OnEventConnect"):
+            return
+        if getattr(self, "_login_event_bound", False):
+            return
+        self._control.OnEventConnect.connect(self._on_event_connect)
+        self._login_event_bound = True
+
+    def _on_event_connect(self, error_code: int) -> None:
+        """Handles the asynchronous Kiwoom login result."""
+
+        self._login_error_code = int(error_code)
+        self._login_completed = True
+        print("KiwoomOpenApiClient OnEventConnect received: {0}".format(self._login_error_code))
+        if self._login_event_loop is not None and self._login_event_loop.isRunning():
+            self._login_event_loop.quit()

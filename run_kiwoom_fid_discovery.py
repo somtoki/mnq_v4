@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 from pathlib import Path
 
@@ -32,6 +33,11 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Run duration in minutes. Use 0 to run until manually stopped.",
     )
+    parser.add_argument(
+        "--login-only",
+        action="store_true",
+        help="Login to Kiwoom for discovery validation, then exit without realtime registration.",
+    )
     return parser.parse_args()
 
 
@@ -55,6 +61,10 @@ def main() -> int:
     try:
         bridge.start()
         client.login()
+        if args.login_only:
+            print("Kiwoom login-only mode completed successfully")
+            bridge.stop()
+            return 0
         client.connect_events()
         client.register_realtime(args.symbol)
     except Exception as error:
@@ -80,6 +90,17 @@ def main() -> int:
         bridge.stop()
         app.quit()
 
+    def handle_sigint(signum: int, frame: object) -> None:
+        """Handles Ctrl+C by stopping the Qt runner cleanly."""
+
+        _ = signum
+        _ = frame
+        print("Kiwoom FID discovery stopping on Ctrl+C")
+        stop_runner()
+
+    previous_sigint_handler = signal.getsignal(signal.SIGINT)
+    signal.signal(signal.SIGINT, handle_sigint)
+
     if args.duration_minutes > 0:
         try:
             client.schedule_stop(args.duration_minutes, stop_runner)
@@ -93,6 +114,8 @@ def main() -> int:
     except KeyboardInterrupt:
         stop_runner()
         return 0
+    finally:
+        signal.signal(signal.SIGINT, previous_sigint_handler)
 
 
 if __name__ == "__main__":
