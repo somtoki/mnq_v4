@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Runtime data
+logs/
+
+# Generated paper trading data
+data/paper/
+data/live/
+
+# Generated reports
+reports/paper_performance/
+reports/v4_trade_comparison/
+
+# OS
+.DS_Store
+Thumbs.db

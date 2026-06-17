@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional
 
 from app.config.paper_config import PaperTradingConfig
 from app.paper.execution_engine import ExecutionEngine
@@ -69,3 +69,18 @@ class LivePaperTrader:
         """Returns how many completed bars were processed."""
 
         return self._processed_bar_count
+
+    def get_open_position(self) -> Optional[Dict[str, object]]:
+        """Returns the active paper position, if one exists."""
+
+        return self._execution_engine.get_open_position()
+
+    def get_realized_pnl(self) -> float:
+        """Returns cumulative realized paper PnL."""
+
+        return self._execution_engine.get_realized_pnl()
+
+    def get_pending_orders(self) -> List[Dict[str, object]]:
+        """Returns a copy of queued paper orders waiting for next-bar execution."""
+
+        return [dict(order) for order in self._execution_engine.pending_orders]

@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 from typing import List
 
+from app.broker.kiwoom_live_bridge import KiwoomLiveBridge, build_sample_kiwoom_raw_ticks
 from app.broker.kiwoom_tick_adapter import KiwoomTickAdapter
 from app.paper.live_paper_trader import LivePaperTrader
 from app.realtime.live_bar_feed import LiveBarFeed
@@ -23,6 +24,11 @@ def parse_args() -> argparse.Namespace:
         "--dry-run-kiwoom-adapter",
         action="store_true",
         help="Run Kiwoom tick adapter samples through the live paper trading skeleton.",
+    )
+    parser.add_argument(
+        "--dry-run-kiwoom-bridge",
+        action="store_true",
+        help="Run the Kiwoom live bridge skeleton with sample raw ticks.",
     )
     return parser.parse_args()
 
@@ -92,6 +98,21 @@ def main() -> None:
             ticks=normalized_ticks,
         )
         print("Kiwoom tick adapter dry run completed")
+
+    if args.dry_run_kiwoom_bridge:
+        bridge = KiwoomLiveBridge(
+            symbol=args.symbol,
+            bar_minutes=args.bar_minutes,
+        )
+        bridge.start()
+        bridge_processed_bars = 0
+        for raw_tick in build_sample_kiwoom_raw_ticks(symbol=args.symbol):
+            bridge_processed_bars += bridge.on_raw_tick(raw_tick)
+        print("MNQ V4 Kiwoom Bridge Dry Run Started")
+        print("Completed bars processed: {0}".format(bridge_processed_bars))
+        print("Bridge status: {0}".format(bridge.get_status()))
+        bridge.stop()
+        processed_bars += bridge_processed_bars
 
     print("Completed bars processed: {0}".format(processed_bars))
 
