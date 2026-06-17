@@ -33,6 +33,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional COM ProgID override for Kiwoom API discovery/login.",
     )
+    parser.add_argument(
+        "--login-connect-param",
+        type=int,
+        default=None,
+        help="Optional CommConnect integer parameter override for Kiwoom login.",
+    )
     parser.add_argument("--screen-no", type=str, default="9001", help="Kiwoom screen number for realtime registration.")
     parser.add_argument(
         "--realtime-fids",
@@ -72,7 +78,9 @@ def main() -> int:
         realtime_fids=args.realtime_fids,
         prog_id=args.prog_id,
         api_kind=args.api_kind,
+        login_connect_param=args.login_connect_param,
     )
+    _ = client.init_qt_application()
     log_path = client.enable_discovery_mode(fid_log_path=args.log_path)
 
     print("Kiwoom FID Discovery Started")

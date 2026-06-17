@@ -74,6 +74,7 @@ class KiwoomOpenApiClient:
         realtime_fids: str = "20;10;15",
         prog_id: Optional[str] = None,
         api_kind: str = "overseas_futures",
+        login_connect_param: Optional[int] = None,
     ) -> None:
         """Stores the target bridge and optional Kiwoom runtime handles."""
 
@@ -83,6 +84,10 @@ class KiwoomOpenApiClient:
         self._realtime_fids = str(realtime_fids)
         self._api_kind = str(api_kind)
         self._prog_id = self._resolve_prog_id(prog_id=prog_id, api_kind=api_kind)
+        self._login_connect_param = self._resolve_login_connect_param(
+            login_connect_param=login_connect_param,
+            api_kind=api_kind,
+        )
         self._qt_application = None  # type: Optional[QApplication]
         self._control = None  # type: Optional[QAxWidget]
         self._events_connected = False
@@ -90,6 +95,7 @@ class KiwoomOpenApiClient:
         self._login_event_loop = None  # type: Optional[QEventLoop]
         self._login_error_code = None  # type: Optional[int]
         self._login_completed = False
+        self._login_timed_out = False
         self.discovery_mode = False
         self.fid_log_path = Path(__file__).resolve().parents[2] / "data" / "live" / "kiwoom_fid_discovery.csv"
         self.candidate_fids = self._build_default_candidate_fids()
@@ -98,6 +104,9 @@ class KiwoomOpenApiClient:
         """Returns whether PyQt5 and QAxContainer are available in this environment."""
 
         if QApplication is None or QAxWidget is None:
+            return False
+        app = self.init_qt_application()
+        if app is None:
             return False
         widget = None
         try:
@@ -113,27 +122,28 @@ class KiwoomOpenApiClient:
     def login(self) -> None:
         """Runs CommConnect and waits for the OnEventConnect result."""
 
-        if not self.is_available():
+        if QApplication is None or QAxWidget is None:
             raise RuntimeError(
                 "PyQt5/QAxContainer is not available. Kiwoom OpenAPI login skeleton cannot start."
             )
         if QEventLoop is None:
             raise RuntimeError("PyQt5.QtCore.QEventLoop is not available for Kiwoom login.")
 
-        if self._qt_application is None:
-            self._qt_application = QApplication.instance() or QApplication([])
-        if self._control is None:
-            self._control = QAxWidget(self._prog_id)
-        if self._control is None:
-            raise RuntimeError("Kiwoom OpenAPI control could not be initialized.")
-        if self._control.isNull():
+        if self.init_qt_application() is None:
+            raise RuntimeError("QApplication could not be initialized for Kiwoom login.")
+        control = self.init_control()
+        if control is None or control.isNull():
             raise RuntimeError("Kiwoom OpenAPI control is unavailable for ProgID: {0}".format(self._prog_id))
         self._bind_login_event()
         self._login_error_code = None
         self._login_completed = False
+        self._login_timed_out = False
         self._login_event_loop = QEventLoop()
         print("KiwoomOpenApiClient selected ProgID: {0}".format(self._prog_id))
-        result = self._control.dynamicCall("CommConnect()")
+        commconnect_call = self._build_commconnect_call()
+        print("KiwoomOpenApiClient attempting {0}".format(commconnect_call["description"]))
+        self.schedule_login_timeout(timeout_seconds=60)
+        result = self._invoke_commconnect(control, commconnect_call)
         if result not in (0, None):
             self._login_event_loop = None
             raise RuntimeError("CommConnect() failed to start. Return value: {0}".format(result))
@@ -142,6 +152,8 @@ class KiwoomOpenApiClient:
         self._login_event_loop.exec_()
         self._login_event_loop = None
 
+        if self._login_timed_out:
+            raise RuntimeError("Kiwoom login timed out after 60 seconds waiting for OnEventConnect.")
         if not self._login_completed:
             raise RuntimeError("Kiwoom login did not complete.")
         if self._login_error_code != 0:
@@ -154,15 +166,16 @@ class KiwoomOpenApiClient:
     def connect_events(self) -> None:
         """Binds optional OpenAPI events when the control is available."""
 
-        if not self.is_available():
+        if QApplication is None or QAxWidget is None:
             print("KiwoomOpenApiClient event binding skipped because PyQt/QAx is unavailable")
             return
-        if self._control is None:
+        control = self.init_control()
+        if control is None or control.isNull():
             raise RuntimeError("Kiwoom control is not initialized. Call login() first.")
 
         self._bind_login_event()
-        if not self._events_connected and hasattr(self._control, "OnReceiveRealData"):
-            self._control.OnReceiveRealData.connect(self.on_receive_real_data)
+        if not self._events_connected and hasattr(control, "OnReceiveRealData"):
+            control.OnReceiveRealData.connect(self.on_receive_real_data)
             self._events_connected = True
         print("KiwoomOpenApiClient event binding skeleton connected")
 
@@ -199,6 +212,26 @@ class KiwoomOpenApiClient:
 
         return self._qt_application
 
+    def init_qt_application(self) -> Optional[QApplication]:
+        """Creates or reuses QApplication before any QWidget/QAxWidget work."""
+
+        if QApplication is None:
+            return None
+        if self._qt_application is None:
+            self._qt_application = QApplication.instance() or QApplication([])
+        return self._qt_application
+
+    def init_control(self) -> Optional[QAxWidget]:
+        """Lazily creates the selected Kiwoom QAxWidget after QApplication exists."""
+
+        if QAxWidget is None:
+            return None
+        if self.init_qt_application() is None:
+            return None
+        if self._control is None:
+            self._control = QAxWidget(self._prog_id)
+        return self._control
+
     def has_qt_timer(self) -> bool:
         """Returns whether QTimer is importable for timed runner shutdown."""
 
@@ -211,6 +244,14 @@ class KiwoomOpenApiClient:
             raise RuntimeError("PyQt5.QtCore.QTimer is not available for timed shutdown.")
         milliseconds = max(int(duration_minutes * 60 * 1000), 0)
         QTimer.singleShot(milliseconds, stop_callback)
+
+    def schedule_login_timeout(self, timeout_seconds: int) -> None:
+        """Schedules a timeout to break the login wait loop safely."""
+
+        if QTimer is None:
+            return
+        milliseconds = max(int(timeout_seconds * 1000), 0)
+        QTimer.singleShot(milliseconds, self._on_login_timeout)
 
     def unregister_realtime(self, symbol: str) -> None:
         """Attempts a safe realtime unregistration for the configured screen."""
@@ -441,3 +482,49 @@ class KiwoomOpenApiClient:
         if str(api_kind) == "domestic":
             return "KHOPENAPI.KHOpenAPICtrl.1"
         return "KFOPENAPI.KFOpenAPICtrl.1"
+
+    def _resolve_login_connect_param(
+        self,
+        login_connect_param: Optional[int],
+        api_kind: str,
+    ) -> Optional[int]:
+        """Resolves the CommConnect parameter policy for the selected API kind."""
+
+        if login_connect_param is not None:
+            return int(login_connect_param)
+        if str(api_kind) == "overseas_futures":
+            return 1
+        return None
+
+    def _build_commconnect_call(self) -> Dict[str, object]:
+        """Builds the correct CommConnect invocation for the selected API kind."""
+
+        if self._login_connect_param is None:
+            return {
+                "signature": "CommConnect()",
+                "args": [],
+                "description": "CommConnect()",
+            }
+        return {
+            "signature": "CommConnect(int)",
+            "args": [int(self._login_connect_param)],
+            "description": "CommConnect(int) with param={0}".format(self._login_connect_param),
+        }
+
+    def _invoke_commconnect(self, control: "QAxWidget", call_spec: Dict[str, object]) -> object:
+        """Invokes CommConnect with the chosen signature and arguments."""
+
+        signature = str(call_spec["signature"])
+        args = list(call_spec["args"])
+        if args:
+            return control.dynamicCall(signature, *args)
+        return control.dynamicCall(signature)
+
+    def _on_login_timeout(self) -> None:
+        """Stops the login wait loop if OnEventConnect never arrives."""
+
+        if self._login_completed:
+            return
+        self._login_timed_out = True
+        if self._login_event_loop is not None and self._login_event_loop.isRunning():
+            self._login_event_loop.quit()
