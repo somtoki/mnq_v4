@@ -104,6 +104,23 @@ Safety reminder:
 - No real orders
 - `send_order()` remains disabled
 
+## Analyzing FID Discovery Logs
+
+After collecting `data/live/kiwoom_fid_discovery.csv`, run:
+
+`C:\Users\Cham\AppData\Local\Programs\Python\Python39-32\python.exe app/research/analyze_kiwoom_fid_log.py --input data/live/kiwoom_fid_discovery.csv`
+
+The analyzer writes results to `reports/kiwoom_fid_analysis` by default.
+
+Inspect these files first:
+
+- `candidate_time_fields.csv`
+- `candidate_price_fields.csv`
+- `candidate_volume_fields.csv`
+- `summary.md`
+
+Use `fid_summary.csv` when you need the full field-by-field statistics, including sample values, numeric parse rate, changed count, and monotonic-like score.
+
 ## Next Steps For Real Kiwoom OpenAPI Connection
 
 1. Add an optional Kiwoom API client wrapper that owns `QApplication`, `QAxWidget`, login state, and signal-slot wiring.

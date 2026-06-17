@@ -1,0 +1,7 @@
+key,count,non_empty_count,unique_count,sample_values,numeric_parse_rate,min_numeric,max_numeric,avg_numeric,monotonic_like_score,changed_count,reason
+current_price,5,5,5,21010.25 | 21013.00 | 21015.50 | 21018.25 | 21017.75,1.0000,21010.250000,21018.250000,21014.950000,0.750000,4,
+real_type,5,5,1,OVERSEAS_FUTURES_TICK,0.0000,,,,,0,
+symbol,5,5,1,MNQ,0.0000,,,,,0,
+trade_date,5,5,1,20260102,1.0000,20260102.000000,20260102.000000,20260102.000000,1.000000,0,
+trade_time,5,5,5,093005 | 094459 | 094501 | 095959 | 100001,1.0000,93005.000000,100001.000000,95585.000000,1.000000,4,
+volume,5,5,3,1 | 2 | 3,1.0000,1.000000,3.000000,1.800000,0.250000,4,

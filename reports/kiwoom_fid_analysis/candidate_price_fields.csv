@@ -1,0 +1,2 @@
+key,count,non_empty_count,unique_count,sample_values,numeric_parse_rate,min_numeric,max_numeric,avg_numeric,monotonic_like_score,changed_count,reason
+current_price,5,5,5,21010.25 | 21013.00 | 21015.50 | 21018.25 | 21017.75,1.0000,21010.250000,21018.250000,21014.950000,0.750000,4,numeric parse rate is high; values fall within broad MNQ-like price range; value changes across events; key contains price

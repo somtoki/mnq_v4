@@ -1,0 +1,2 @@
+key,count,non_empty_count,unique_count,sample_values,numeric_parse_rate,min_numeric,max_numeric,avg_numeric,monotonic_like_score,changed_count,reason
+trade_time,5,5,5,093005 | 094459 | 094501 | 095959 | 100001,1.0000,93005.000000,100001.000000,95585.000000,1.000000,4,key contains time; sample values look like HHMMSS

@@ -1,0 +1,2 @@
+key,count,non_empty_count,unique_count,sample_values,numeric_parse_rate,min_numeric,max_numeric,avg_numeric,monotonic_like_score,changed_count,reason
+volume,5,5,3,1 | 2 | 3,1.0000,1.000000,3.000000,1.800000,0.250000,4,key name looks volume-like; numeric and non-negative
