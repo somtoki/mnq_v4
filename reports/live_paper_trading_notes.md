@@ -43,6 +43,43 @@ Current non-responsibilities:
 - No real order routing
 - No real account trading
 
+## Kiwoom OpenAPI Client Role
+
+`app/broker/kiwoom_openapi_client.py` is the optional PyQt/QAxWidget-facing wrapper that can later own Kiwoom login, event wiring, and overseas futures realtime subscriptions.
+
+Current client responsibilities:
+
+- Detect whether `PyQt5` and `QAxContainer` are available
+- Hold the future `QApplication` and `QAxWidget` control handles
+- Bind a skeleton realtime callback
+- Build a raw tick from placeholder overseas futures FID values
+- Forward the raw tick into `KiwoomLiveBridge.on_raw_tick(raw_tick)`
+
+Safety constraints:
+
+- No real orders
+- No account trading implementation
+- Any placeholder order method must raise: `Real orders are disabled in this paper trading client.`
+
+## FID Discovery Workflow
+
+Use discovery mode before mapping actual overseas futures realtime fields into the strategy pipeline.
+
+1. Enable discovery mode on `KiwoomOpenApiClient`.
+2. Register a candidate FID list such as time, current price, and volume candidates.
+3. For each realtime event, collect available candidate FID values.
+4. Append the event snapshot to `data/live/kiwoom_fid_discovery.csv` or a test CSV path.
+5. Inspect the CSV to identify which real FIDs consistently contain trade time, last price, and volume for the overseas futures feed.
+
+The current CSV format stores one row per realtime event with:
+
+- `received_at`
+- `code`
+- `real_type`
+- `fid_values_json`
+
+Use the logged JSON field to compare candidate FID values across repeated events during market hours until the true overseas futures mapping is clear.
+
 ## Next Steps For Real Kiwoom OpenAPI Connection
 
 1. Add an optional Kiwoom API client wrapper that owns `QApplication`, `QAxWidget`, login state, and signal-slot wiring.
@@ -51,6 +88,10 @@ Current non-responsibilities:
 4. Decide whether timestamps should use exchange time, local machine time, or a broker-provided trading date plus trade time combination.
 5. Add reconnect, duplicate-event filtering, session-state handling, and structured logging around realtime callbacks.
 6. Keep order placement out of this path until the paper runtime is fully validated against live incoming ticks.
+
+## Next Step For Real Overseas Futures FID Mapping
+
+After confirming the actual Kiwoom overseas futures realtime field list, map the real FIDs for symbol, trade date, trade time, last price, and volume into `KiwoomOpenApiClient.build_raw_tick_from_fids()`, then validate that the resulting raw tick is accepted by `KiwoomLiveBridge` unchanged in paper mode.
 
 ## Warning
 

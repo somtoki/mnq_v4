@@ -7,9 +7,11 @@ from pathlib import Path
 from typing import List
 
 from app.broker.kiwoom_live_bridge import KiwoomLiveBridge, build_sample_kiwoom_raw_ticks
+from app.broker.kiwoom_openapi_client import KiwoomOpenApiClient, build_sample_fid_payloads
 from app.broker.kiwoom_tick_adapter import KiwoomTickAdapter
 from app.paper.live_paper_trader import LivePaperTrader
 from app.realtime.live_bar_feed import LiveBarFeed
+from app.research.test_kiwoom_fid_discovery_manual import run_manual_discovery
 from app.research.test_kiwoom_tick_adapter_manual import build_sample_raw_ticks, run_manual_test
 
 
@@ -29,6 +31,16 @@ def parse_args() -> argparse.Namespace:
         "--dry-run-kiwoom-bridge",
         action="store_true",
         help="Run the Kiwoom live bridge skeleton with sample raw ticks.",
+    )
+    parser.add_argument(
+        "--dry-run-kiwoom-client",
+        action="store_true",
+        help="Run the optional Kiwoom OpenAPI client skeleton with fake FID ticks.",
+    )
+    parser.add_argument(
+        "--dry-run-fid-discovery",
+        action="store_true",
+        help="Run the Kiwoom realtime FID discovery logger dry run.",
     )
     return parser.parse_args()
 
@@ -113,6 +125,31 @@ def main() -> None:
         print("Bridge status: {0}".format(bridge.get_status()))
         bridge.stop()
         processed_bars += bridge_processed_bars
+
+    if args.dry_run_kiwoom_client:
+        bridge = KiwoomLiveBridge(
+            symbol=args.symbol,
+            bar_minutes=args.bar_minutes,
+        )
+        client = KiwoomOpenApiClient(
+            bridge=bridge,
+            symbol=args.symbol,
+        )
+        bridge.start()
+        print("Kiwoom OpenAPI available: {0}".format(client.is_available()))
+        client_processed_bars = 0
+        for fid_values in build_sample_fid_payloads(symbol=args.symbol):
+            raw_tick = client.build_raw_tick_from_fids(code=args.symbol, fid_values=fid_values)
+            client_processed_bars += bridge.on_raw_tick(raw_tick)
+        print("Completed bars processed: {0}".format(client_processed_bars))
+        print("Bridge status: {0}".format(bridge.get_status()))
+        bridge.stop()
+        processed_bars += client_processed_bars
+
+    if args.dry_run_fid_discovery:
+        log_path = run_manual_discovery()
+        print("Kiwoom FID discovery dry run completed")
+        print("FID log path: {0}".format(log_path))
 
     print("Completed bars processed: {0}".format(processed_bars))
 
