@@ -10,10 +10,12 @@ from typing import Any, Dict, List, Optional
 
 try:
     from PyQt5.QAxContainer import QAxWidget  # type: ignore
+    from PyQt5.QtCore import QTimer  # type: ignore
     from PyQt5.QtWidgets import QApplication  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency for future integration only.
     QApplication = None
     QAxWidget = None
+    QTimer = None
 
 from app.broker.kiwoom_live_bridge import KiwoomLiveBridge
 
@@ -93,6 +95,8 @@ class KiwoomOpenApiClient:
             self._qt_application = QApplication.instance() or QApplication([])
         if self._control is None:
             self._control = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
+        if self._control is None:
+            raise RuntimeError("Kiwoom OpenAPI control could not be initialized.")
 
         print("KiwoomOpenApiClient login skeleton initialized (no actual login performed)")
 
@@ -115,6 +119,24 @@ class KiwoomOpenApiClient:
 
         self._registered_symbols.add(symbol)
         print("KiwoomOpenApiClient skeleton would register realtime for symbol: {0}".format(symbol))
+
+    def get_qt_application(self) -> Optional[QApplication]:
+        """Returns the cached QApplication instance when available."""
+
+        return self._qt_application
+
+    def has_qt_timer(self) -> bool:
+        """Returns whether QTimer is importable for timed runner shutdown."""
+
+        return QTimer is not None
+
+    def schedule_stop(self, duration_minutes: float, stop_callback: Any) -> None:
+        """Schedules a stop callback using QTimer when PyQt is available."""
+
+        if QTimer is None:
+            raise RuntimeError("PyQt5.QtCore.QTimer is not available for timed shutdown.")
+        milliseconds = max(int(duration_minutes * 60 * 1000), 0)
+        QTimer.singleShot(milliseconds, stop_callback)
 
     def unregister_realtime(self, symbol: str) -> None:
         """Prints intended realtime unregistration."""

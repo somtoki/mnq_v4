@@ -80,6 +80,30 @@ The current CSV format stores one row per realtime event with:
 
 Use the logged JSON field to compare candidate FID values across repeated events during market hours until the true overseas futures mapping is clear.
 
+## Running Real FID Discovery
+
+Use `run_kiwoom_fid_discovery.py` when you are ready to log real Kiwoom realtime events during market hours.
+
+Example:
+
+`C:\Users\Cham\AppData\Local\Programs\Python\Python39-32\python.exe .\run_kiwoom_fid_discovery.py --symbol MNQ --log-path data/live/kiwoom_fid_discovery.csv`
+
+Expected output file:
+
+- `data/live/kiwoom_fid_discovery.csv`
+
+Safe stop behavior:
+
+- If `--duration-minutes 0` is used, the runner continues until manually stopped.
+- Press `Ctrl+C` to stop safely.
+- If `--duration-minutes` is greater than zero, the runner stops automatically after the requested duration.
+
+Safety reminder:
+
+- Paper trading only
+- No real orders
+- `send_order()` remains disabled
+
 ## Next Steps For Real Kiwoom OpenAPI Connection
 
 1. Add an optional Kiwoom API client wrapper that owns `QApplication`, `QAxWidget`, login state, and signal-slot wiring.
